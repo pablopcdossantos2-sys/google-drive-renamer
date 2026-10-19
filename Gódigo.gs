@@ -65,6 +65,37 @@ const TERMOS_PARA_SUBSTITUIR = {
 // Textos a serem adicionados (deixe '' para não usar)
 const PREFIXO = '';
 const SUFIXO = '';
+ 
+// ----- 5. CONFIGURAÇÕES DE CAPITALIZAÇÃO (OPCIONAL) -----
+// 'NENHUM' mantém o comportamento atual.
+// 'TITLE_CASE_BRASILEIRO' aplica Title Case e restaura siglas, termos especiais e algarismos romanos.
+const MODO_FORMATACAO_NOME = 'NENHUM';
+
+const PALAVRAS_MINUSCULAS_TITLE_CASE = [
+  'a', 'as', 'o', 'os', 'um', 'uma', 'uns', 'umas', 'de', 'da', 'das', 'do', 'dos',
+  'em', 'na', 'nas', 'no', 'nos', 'e', 'ou', 'por', 'para', 'com', 'sem', 'sobre',
+  'entre', 'ao', 'aos', 'à', 'às'
+];
+
+const SIGLAS_TITLE_CASE = [
+  'UFMG', 'USP', 'UNIFESP', 'UNICAMP', 'UERJ', 'UFRJ', 'UFF', 'UFPR', 'UFSC', 'UFRGS',
+  'UFBA', 'UFPE', 'UFC', 'UFG', 'UFMS', 'UFMT', 'UFPA', 'UFAM', 'UFES', 'UFAL', 'UFPB',
+  'UFRN', 'UFPI', 'UFMA', 'UFAC', 'UNB', 'UNESP', 'PUC', 'FCC', 'SUS', 'MEC', 'MS',
+  'CNRM', 'COREME', 'CRM', 'CFM', 'AMB', 'CNS', 'CAPES', 'CNPQ', 'ENARE', 'ENAMED'
+];
+const SIGLAS_COM_HIFEN_TITLE_CASE = ['PUC-SP', 'PUC-RIO', 'PUC-RS', 'PUC-MINAS'];
+const TERMOS_ESPECIAIS_TITLE_CASE = {
+  'hc': 'HC', 'hcfmusp': 'HCFMUSP', 'hcpa': 'HCPA', 'hsl': 'HSL', 'hupes': 'HUPES',
+  'inca': 'INCA', 'inc': 'INC', 'iff': 'IFF', 'ipq': 'IPq', 'hcfmrp': 'HCFMRP',
+  'fcm': 'FCM', 'famerp': 'FAMERP', 'famema': 'FAMEMA', 'einstein': 'Einstein'
+};
+const ALGARISMOS_ROMANOS_TITLE_CASE = [
+  'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII',
+  'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX', 'XXI', 'XXII', 'XXIII', 'XXIV',
+  'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX', 'XXXI', 'XXXII', 'XXXIII', 'XXXIV',
+  'XXXV', 'XXXVI', 'XXXVII', 'XXXVIII', 'XXXIX'
+];
+
 
 // ----- 4. CONFIGURAÇÕES DE FILTRAGEM -----
 // Modos de Filtragem: 'TODAS', 'SOMENTE' ou 'EXCETO'
@@ -74,6 +105,40 @@ const MODO_EXTENSOES = 'TODAS';
 const EXTENSOES_PERMITIDAS = ['', ''];
 const EXTENSOES_EXCLUIDAS = [''];
 
+
+// Formata o nome-base sem alterar a extensão do arquivo.
+function formatarNomeTitleCaseBrasileiro(nome) {
+  if (!nome || typeof nome !== 'string') return nome;
+  let resultado = nome.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!resultado) return resultado;
+  resultado = resultado.split(' ').map((palavra, index) => {
+    if (index === 0 || !PALAVRAS_MINUSCULAS_TITLE_CASE.includes(palavra)) {
+      return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+    }
+    return palavra;
+  }).join(' ');
+  SIGLAS_TITLE_CASE.forEach(sigla => {
+    resultado = resultado.replace(new RegExp('\\b' + escaparRegexTitleCase(sigla) + '\\b', 'gi'), sigla);
+  });
+  SIGLAS_COM_HIFEN_TITLE_CASE.forEach(sigla => {
+    resultado = resultado.replace(new RegExp(escaparRegexTitleCase(sigla), 'gi'), sigla);
+  });
+  Object.keys(TERMOS_ESPECIAIS_TITLE_CASE).forEach(chave => {
+    resultado = resultado.replace(new RegExp('\\b' + escaparRegexTitleCase(chave) + '\\b', 'gi'), TERMOS_ESPECIAIS_TITLE_CASE[chave]);
+  });
+  ALGARISMOS_ROMANOS_TITLE_CASE.forEach(algarismo => {
+    resultado = resultado.replace(new RegExp('\\b' + escaparRegexTitleCase(algarismo) + '\\b', 'gi'), algarismo);
+  });
+  return resultado.replace(/\s+/g, ' ').trim();
+}
+
+function escaparRegexTitleCase(texto) {
+  return texto.split('').map(function (caractere) {
+    return '.^$*+?()[]{}|\\'.indexOf(caractere) >= 0
+      ? String.fromCharCode(92) + caractere
+      : caractere;
+  }).join('');
+}
 
 // ================= LÓGICA DE APOIO =================
 
@@ -191,7 +256,14 @@ function gerarNovoNome(nomeAtual) {
     });
   }
 
-  // --- 6. ADIÇÃO DE PREFIXO E SUFIXO ---
+  // --- 6. CAPITALIZAÇÃO OPCIONAL ---
+  if (MODO_FORMATACAO_NOME === 'TITLE_CASE_BRASILEIRO') {
+    novoNome = formatarNomeTitleCaseBrasileiro(novoNome);
+  } else if (MODO_FORMATACAO_NOME !== 'NENHUM') {
+    throw new Error('MODO_FORMATACAO_NOME inválido. Utilize "NENHUM" ou "TITLE_CASE_BRASILEIRO".');
+  }
+
+  // --- 7. ADIÇÃO DE PREFIXO E SUFIXO ---
   const prefixo = PREFIXO || '';
   const sufixo = SUFIXO || '';
 
@@ -203,7 +275,7 @@ function gerarNovoNome(nomeAtual) {
     novoNome = novoNome + sufixo;
   }
 
-  // --- 7. PREVENÇÃO DE MÚLTIPLOS ESPAÇOS ---
+  // --- 8. PREVENÇÃO DE MÚLTIPLOS ESPAÇOS ---
   // Substitui 2 ou mais espaços consecutivos por apenas 1 espaço
   novoNome = novoNome.replace(/\s{2,}/g, ' ');
 
